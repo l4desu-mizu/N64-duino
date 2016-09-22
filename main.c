@@ -4,7 +4,8 @@
 
 #define SIGNAL_PIN (1<<PB0)
 #define TIMERSTART 253
-#define CONTROLLERBITS 32
+#define CONTROLLERREADBITS 32
+#define CONTROLLERSENDBITS 8
 
 struct state{
 	char current :1;
@@ -16,15 +17,19 @@ static uint8_t count = 0;			// interrupt counter
 uint32_t currentTime;
 struct state bitState;
 uint32_t controllerValue;
-uint8_t controllerBitsToRead;
+int8_t controllerBitsToRead;
+int8_t controllerBitsToSend;
+const uint8_t pollSignal = 0b00000011;
 
 ISR(PCINT0_vect){
+	uint32_t interval=MicroSecClock-currentTime;
+
 	bitState.last=bitState.current;
 	bitState.current=PORTB&SIGNAL_PIN;
 
-	uint32_t interval=MicroSecClock-currentTime;
+	//configInput|configOutput already handle the recieving/sending state by en-/disabling Pinchange-Interrupt, so no further check is needed
 	if(~bitState.last){//"rising edge"
-		if(interval>1){ //3µs
+		if(interval>1){ //3µs (not quite sure about the timing and unit of MicroSecClock)
 			controllerValue&=~(1<<controllerBitsToRead--);
 		}else{
 			controllerValue|=(1<<controllerBitsToRead--);
@@ -38,7 +43,6 @@ ISR(TIMER0_OVF_vect){
 
 	if( (++count & 0x01) == 0 ){		// bump the interrupt counter
 		++MicroSecClock;				// & count uSec every other time.
-		PORTB=(PORTB&SIGNAL_PIN)? PORTB&~SIGNAL_PIN : PORTB|SIGNAL_PIN; //test output. works btw
 	}
 
 	TCNT0 = TIMERSTART;			// reset counter
@@ -76,6 +80,26 @@ void configInput(){
 
 void sendPollSignal(){
 	configOutput();
+	controllerBitsToSend=CONTROLLERSENDBITS-1; //need this offset for shift op
+	PORTB&=~SIGNAL_PIN;
+	TCNT0 = TIMERSTART; //reset counter
+	MicroSecClock=0;
+	while(controllerBitsToSend>=0){ //wait until all bits are send
+		if(pollSignal>>controllerBitsToSend & 0x01){//send 0
+			if(MicroSecClock>3){
+				PORTB|=SIGNAL_PIN;
+			}
+		}else{//send 1
+			if(MicroSecClock>1){
+				PORTB|=SIGNAL_PIN;
+			}
+		}
+		if(MicroSecClock>=4){
+			PORTB&=~SIGNAL_PIN;
+			controllerBitsToSend--;
+			MicroSecClock=0;
+		}
+	}
 
 }
 
@@ -83,17 +107,18 @@ uint32_t poll(){
 	sendPollSignal();
 	configInput();
 	currentTime=MicroSecClock;
-	controllerBitsToRead=CONTROLLERBITS;
-	while(controllerBitsToRead>0){};//wait until all bits are read
+	controllerBitsToRead=CONTROLLERREADBITS;//offset not relevant since we just want to recieve 32 bits
+	while(controllerBitsToRead>0){}//wait until all bits are read
 	return controllerValue;
 }
 
 int main(){
 	init();
-	configOutput();
 	initTimer();
 	bitState.current=0;
 	while(1){
+		sendPollSignal();
+		poll();
 	}
 	return 0;
 }
