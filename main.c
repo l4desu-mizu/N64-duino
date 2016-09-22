@@ -3,39 +3,62 @@
 #include <inttypes.h>
 
 #define SIGNAL_PIN (1<<PB0)
-//#define current_my_time (TCNT0)
+#define TIMERSTART 253
+#define CONTROLLERBITS 32
+
+struct state{
+	char current :1;
+	char last : 1;
+};
 
 uint32_t MicroSecClock = 0;
 static uint8_t count = 0;			// interrupt counter
+uint32_t currentTime;
+struct state bitState;
+uint32_t controllerValue;
+uint8_t controllerBitsToRead;
 
 ISR(PCINT0_vect){
+	bitState.last=bitState.current;
+	bitState.current=PORTB&SIGNAL_PIN;
 
+	uint32_t interval=MicroSecClock-currentTime;
+	if(~bitState.last){//"rising edge"
+		if(interval>1){ //3µs
+			controllerValue&=~(1<<controllerBitsToRead--);
+		}else{
+			controllerValue|=(1<<controllerBitsToRead--);
+		}
+	}
+
+	currentTime=MicroSecClock;
 }
 
 ISR(TIMER0_OVF_vect){
 
 	if( (++count & 0x01) == 0 ){		// bump the interrupt counter
 		++MicroSecClock;				// & count uSec every other time.
-		PORTB=(PORTB&SIGNAL_PIN)? PORTB&~SIGNAL_PIN : PORTB|SIGNAL_PIN ;
+		PORTB=(PORTB&SIGNAL_PIN)? PORTB&~SIGNAL_PIN : PORTB|SIGNAL_PIN; //test output. works btw
 	}
 
-	TCNT0 = 253;                    // reset counter
+	TCNT0 = TIMERSTART;			// reset counter
 }
 
+//{{{configfoo
 void init(){
 	//enable input interrupt
-	PCICR|=(1<<PCIE0); //enable inputinterrupt for PCINT[7:0] (Port B)
+	PCICR|=(1<<PCIE0); //enable input-interrupt for PCINT[7:0] (Port B)
 
-	//interrupt enable
+	//general interrupt enable
 	sei();
 }
 
 void initTimer(){
-	TCCR0A=0x00;//TCCR0A&=~(1<<COM0A1)&~(1<<COM0A0)&~(1<<COM0B1)&~(1<<COM0B0)&~(1<<WGM01)&~(1<<WGM00); //normal operation no OCA or OCB
-	TIMSK0|= (1<<TOIE0); //enable timer overflow interrupt
-	TCCR0B&=~(1<<FOC0A)&~(1<<FOC0B)&~(1<<WGM02)&~(1<<CS02)&~(1<<CS01);
-	TCNT0 = 253;                    // set counter to inital value 253 out of 255 (2 clock cycles)
-	TCCR0B|=(1<<CS01); //prescale by 8 (should give us .5µs)
+	TCCR0B=0x00;			//disable Timer (no prescaler etc)
+	TCCR0A=0x00;			//normal operation no OCA or OCB
+	TIMSK0|= (1<<TOIE0);	//enable timer overflow interrupt
+	TCNT0 = TIMERSTART;			//set counter to inital value 253 out of 255 (2 clock cycles)
+	TCCR0B|=(1<<CS01);		//enable timer with prescale 8 (should give us .5µs)
 }
 
 void configOutput(){
@@ -49,14 +72,27 @@ void configInput(){
 	PORTB|=SIGNAL_PIN; //pullup
 	PCMSK0|=SIGNAL_PIN; //enable pinchange interrupt
 }
+//}}}endconfigfoo
 
-void pollsignal(){
+void sendPollSignal(){
+	configOutput();
+
+}
+
+uint32_t poll(){
+	sendPollSignal();
+	configInput();
+	currentTime=MicroSecClock;
+	controllerBitsToRead=CONTROLLERBITS;
+	while(controllerBitsToRead>0){};//wait until all bits are read
+	return controllerValue;
 }
 
 int main(){
 	init();
 	configOutput();
 	initTimer();
+	bitState.current=0;
 	while(1){
 	}
 	return 0;
