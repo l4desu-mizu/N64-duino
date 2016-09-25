@@ -14,7 +14,7 @@ struct state{
 
 uint32_t MicroSecClock = 0;
 static uint8_t count = 0;			// interrupt counter
-uint32_t currentTime;
+uint32_t currentTime = 0;
 struct state bitState;
 uint32_t controllerValue;
 int8_t controllerBitsToRead;
@@ -22,6 +22,7 @@ int8_t controllerBitsToSend;
 const uint8_t pollSignal = 0b00000011;
 
 ISR(PCINT0_vect){
+	//TODO: uint8_t should suffice
 	uint32_t interval=MicroSecClock-currentTime;
 
 	bitState.last=bitState.current;
@@ -41,6 +42,7 @@ ISR(PCINT0_vect){
 
 ISR(TIMER0_OVF_vect){
 
+	//TODO: guess the if isn't needed since the clock is timed at .5µs and counts 2 times to overflow
 	if( (++count & 0x01) == 0 ){		// bump the interrupt counter
 		++MicroSecClock;				// & count uSec every other time.
 	}
@@ -83,6 +85,7 @@ void sendPollSignal(){
 	controllerBitsToSend=CONTROLLERSENDBITS-1; //need this offset for shift op
 	PORTB&=~SIGNAL_PIN;
 	TCNT0 = TIMERSTART; //reset counter
+	//TODO: check for racecondition on MicroSecClock, possibly use of interval is better
 	MicroSecClock=0;
 	while(controllerBitsToSend>=0){ //wait until all bits are send
 		if(pollSignal>>controllerBitsToSend & 0x01){//send 0
@@ -106,9 +109,13 @@ void sendPollSignal(){
 uint32_t poll(){
 	sendPollSignal();
 	configInput();
-	currentTime=MicroSecClock;
 	controllerBitsToRead=CONTROLLERREADBITS;//offset not relevant since we just want to recieve 32 bits
-	while(controllerBitsToRead>0){}//wait until all bits are read
+	while(controllerBitsToRead>0){//wait until all bits are read
+		//timeout
+		if(currentTime>130){ //poll should be 128µs
+			return 0;
+		}
+	}
 	return controllerValue;
 }
 
@@ -118,7 +125,11 @@ int main(){
 	bitState.current=0;
 	while(1){
 		sendPollSignal();
-		poll();
+		if(poll()>0){
+			PORTB|=(1<<PB5);
+		}else{
+			PORTB&=~(1<<PB5);
+		}
 	}
 	return 0;
 }
