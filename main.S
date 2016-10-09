@@ -44,26 +44,26 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 	zero:
 		;3µs 0
 		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN		 ; set pin to zero
-		ldi RTMP, 14		 ; wait for 15 cycles / 3µs
+		ldi RTMP, 14
 		zerozeroloop:
 			dec RTMP
-			brne zerozeroloop    ; 1 / 2 
+			brne zerozeroloop    ; 1 / 2
 		nop
 		nop
 		nop
 
 		;1µs 1
-		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN		; set pin to one after 15 cycles
+		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
 		ldi RTMP, 3
 		zerooneloop:
 			dec RTMP
 			brne zerooneloop
 		nop
-		dec RA1				; don't nop because setting the next bit
-		brne zero			; and branching takes 4-5 cycles 
+		dec RA1
+		brne zero
 	one:
 		;1µs 0
-		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN		; set pin to one after 15 cycles
+		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
 		ldi RTMP, 4
 		onezeroloop:
 			dec RTMP
@@ -74,13 +74,14 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 		;3µs 1
 		;ldi RTMP, SIGNAL_PIN
 		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
-		ldi RTMP, 14		 ; wait for 15 cycles / 3µs
+		ldi RTMP, 14
 		oneoneloop:
 			dec RTMP
 			brne oneoneloop    ; 1 / 2 
-		dec RA2				; don't nope because we need time to
-		brne one			; to jump etc.
-	nop
+		nop
+		dec RA2
+		brne one
+	nop										;same amount of cycles
 	cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
 	cbi _SFR_IO_ADDR(DDRB),SIGNAL_PIN
 	ret
