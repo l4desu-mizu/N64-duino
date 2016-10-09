@@ -43,18 +43,18 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 	ldi RA2, 0x02	; number of ones
 	zero:
 		;3µs 0
-		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN		 ; set pin to zero
-		ldi RTMP, 14
-		zerozeroloop:
+		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN			; set pin to zero
+		ldi RTMP, 14								; 48 cycles for 3µs 14*3cycles = 42 cycles (1 instruction ~ 1cycle)
+		zerozeroloop:								; each loop takes 3 cycles unless we dont branch
 			dec RTMP
-			brne zerozeroloop    ; 1 / 2
+			brne zerozeroloop						; 1 cycles for non branch / 2 cycles for branching
+		nop											; get the last cycles done
 		nop
-		nop
-		nop
+		nop											; end with 45 cycles (analysis shows we cant always be precise so we're faster, also: I'm using cheap china imports of N64-controllers)
 
 		;1µs 1
-		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
-		ldi RTMP, 3
+		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN			; set pin to one
+		ldi RTMP, 3									; 16 cycles for 1µs so we start wasting 9 of em (we want to be faster due to inaccurate clocks or something)
 		zerooneloop:
 			dec RTMP
 			brne zerooneloop
@@ -63,24 +63,24 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 		brne zero
 	one:
 		;1µs 0
-		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
-		ldi RTMP, 4
+		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN			; set pin to zero
+		ldi RTMP, 4									; waste 12 cycles as 16 are 1µs
 		onezeroloop:
 			dec RTMP
 			brne onezeroloop
 		nop
-		nop
+		nop											; end zero with 14 cycles
 
 		;3µs 1
 		;ldi RTMP, SIGNAL_PIN
-		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
-		ldi RTMP, 14
+		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN			; set pin to one
+		ldi RTMP, 14								; again waste 42 cycles
 		oneoneloop:
 			dec RTMP
-			brne oneoneloop    ; 1 / 2 
+			brne oneoneloop							; 1 cycles for non branch / 2 cycles for branching
 		dec RA2
 		brne one
-	nop										;same amount of cycles
-	cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN
+	nop												; same amount of cycles for branching and nonbranching
+	cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN				; set input
 	cbi _SFR_IO_ADDR(DDRB),SIGNAL_PIN
 	ret
