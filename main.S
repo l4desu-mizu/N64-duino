@@ -3,27 +3,35 @@
 RTMP  = 16
 RA1   = 17
 RA2   = 18
-#cseg
-#org 0x00
-	jmp init
 
 #org 0x30
+#cseg
+.section .text
+.global main
+main:
+	jmp init
+
+go:
+	ldi RTMP,(1<<PB5)|SIGNAL_PIN
+	out _SFR_IO_ADDR(PORTB),RTMP
+	mainloop:
+		call poll
+		call wait_1000cycles
+	jmp mainloop
+
+foo:
+	jmp foo
+
 init:
     ldi RTMP,lo8(RAMEND)
-    out SPL,RTMP
+    out _SFR_IO_ADDR(SPL),RTMP
     ldi RTMP, hi8(RAMEND)
-    out SPH,RTMP
-	ldi RTMP, SIGNAL_PIN
-	;ldi RTMP, 0b11111111
-	out DDRB, RTMP
-	;out PORTB, RTMP
-	jmp main
+    out _SFR_IO_ADDR(SPH),RTMP
+	ldi RTMP, ((1<<PB5)|(1<<PB0))
+	out _SFR_IO_ADDR(DDRB), RTMP
+	jmp go
 
 
-main:
-	call poll
-	call wait_1000cycles
-	jmp main
 
 wait_1000cycles:
 	ldi RA1, 0xa6 ; 166 loops
@@ -43,7 +51,7 @@ poll:				; Send 0b00000011 on signal pin
     ldi RA2, 0x02	; number of ones
     zero:
 		ldi RTMP, 0
-		out PORTB, RTMP		 ; set pin to zero
+		out _SFR_IO_ADDR(PORTB), RTMP		 ; set pin to zero
 		ldi RTMP, 0x03		 ; wait for 15 cycles / 3µs
 		zeroloop:
 			dec RTMP
@@ -51,17 +59,17 @@ poll:				; Send 0b00000011 on signal pin
 		nop
 		nop
 		ldi RTMP, SIGNAL_PIN
-		out PORTB, RTMP		; set pin to one after 15 cycles
+		out _SFR_IO_ADDR(PORTB), RTMP		; set pin to one after 15 cycles
 		dec RA1				; don't nop because setting the next bit
 		brne zero			; and branching takes 4-5 cycles 
     one:
 		ldi RTMP, 0
-		out PORTB, RTMP
+		out _SFR_IO_ADDR(PORTB), RTMP
 		nop
 		nop
 		nop
 		ldi RTMP, SIGNAL_PIN
-		out PORTB, RTMP	; 5 cycles aka 1µs low
+		out _SFR_IO_ADDR(PORTB), RTMP	; 5 cycles aka 1µs low
 		ldi RTMP, 0x03
 		oneloop:
 			dec RTMP

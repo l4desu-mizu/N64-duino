@@ -1,9 +1,11 @@
 default: assembler
 assembler:
-	avr-as -Wall -mmcu=atmega328p -o main.elf *.S
+	avr-gcc -Wall -DF_CPU=16000000UL -mmcu=atmega328p -o main.elf main.S
+	#avr-gcc -Wall -DF_CPU=16000000UL -mmcu=atmega328p -o main.elf foo.S
 	avr-objcopy -O ihex -R .eeprom main.elf out.hex
 c:
-	avr-gcc -Wall -DF_CPU=16000000UL -mmcu=atmega328p -o main.elf *.c 
+	avr-gcc -Wall -DF_CPU=16000000UL -mmcu=atmega328p -o main.elf main.c 
+	#avr-gcc -Wall -DF_CPU=16000000UL -mmcu=atmega328p -o main.elf foo.c 
 	avr-objcopy -O ihex -R .eeprom main.elf out.hex
 arduino:
 	avr-g++ -L/usr/arduino/lib -I/usr/arduino/include -Wall -DF_CPU=16000000UL -Os -mmcu=atmega328p -o main.elf main.c -larduino
