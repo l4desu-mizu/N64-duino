@@ -21,20 +21,17 @@ main:
 go:
 	mainloop:
 		call poll
-		call wait_1000cycles
-		call wait_1000cycles
-		call wait_1000cycles
+		call wait_100microseconds
 	jmp mainloop
 
-wait_1000cycles:
-	ldi RA1, 0xff ; 166 loops
+wait_100microseconds:
+	ldi RA1, 0x05 ; 5 loops of
+	ldi RA2, 0x9f ; 159 loops
 	wait_loop1:
-		dec RA1
+		dec RA2
 		brne wait_loop1
-	ldi RA1, 0xff ; 166 loops
-	wait_loop2:
-		dec RA1
-		brne wait_loop2
+	dec RA1
+	brne wait_loop1
 	ret
 
 poll:				; Send 0b000000011 (8 bits) on signal pin
