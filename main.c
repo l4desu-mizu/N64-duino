@@ -3,7 +3,7 @@
 #include <inttypes.h>
 
 #define SIGNAL_PIN (1<<PB0)
-#define TIMERSTART 253
+#define TIMERSTART 255
 #define CONTROLLERREADBITS 32
 #define CONTROLLERSENDBITS 8
 
@@ -43,10 +43,10 @@ ISR(PCINT0_vect){
 ISR(TIMER0_OVF_vect){
 
 	//TODO: guess the if isn't needed since the clock is timed at .5µs and counts 2 times to overflow
-	if( (++count & 0x01) == 0 ){		// bump the interrupt counter
-		++MicroSecClock;				// & count uSec every other time.
-	}
-
+	//if( (++count & 0x01) == 0 ){		// bump the interrupt counter
+	//	++MicroSecClock;				// & count uSec every other time.
+	//}
+	PORTB^=SIGNAL_PIN;
 	TCNT0 = TIMERSTART;			// reset counter
 }
 
@@ -121,15 +121,16 @@ uint32_t poll(){
 
 int main(){
 	init();
+	configOutput();
 	initTimer();
 	bitState.current=0;
 	while(1){
-		sendPollSignal();
+		/*sendPollSignal();
 		if(poll()>0){
 			PORTB|=(1<<PB5);
 		}else{
 			PORTB&=~(1<<PB5);
-		}
+		}*/
 	}
 	return 0;
 }
