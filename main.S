@@ -19,17 +19,19 @@ main:
 	jmp go
 
 go:
-		call poll
 	mainloop:
-		;call wait_1000cycles
+		call poll
+		call wait_1000cycles
+		call wait_1000cycles
+		call wait_1000cycles
 	jmp mainloop
 
 wait_1000cycles:
-	ldi RA1, 0xa6 ; 166 loops
+	ldi RA1, 0xff ; 166 loops
 	wait_loop1:
 		dec RA1
 		brne wait_loop1
-	ldi RA1, 0xa6 ; 166 loops
+	ldi RA1, 0xff ; 166 loops
 	wait_loop2:
 		dec RA1
 		brne wait_loop2
@@ -44,13 +46,11 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 	zero:
 		;3µs 0
 		cbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN			; set pin to zero
-		ldi RTMP, 14								; 48 cycles for 3µs 14*3cycles = 42 cycles (1 instruction ~ 1cycle)
+		ldi RTMP, 15								; 48 cycles for 3µs 15*3cycles = 45 cycles (1 instruction ~ 1cycle)
 		zerozeroloop:								; each loop takes 3 cycles unless we dont branch
 			dec RTMP
 			brne zerozeroloop						; 1 cycles for non branch / 2 cycles for branching
-		nop											; get the last cycles done
-		nop
-		nop											; end with 45 cycles (analysis shows we cant always be precise so we're faster, also: I'm using cheap china imports of N64-controllers)
+		nop											; get the last cycles done and end with 46 cycles
 
 		;1µs 1
 		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN			; set pin to one
@@ -58,6 +58,7 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 		zerooneloop:
 			dec RTMP
 			brne zerooneloop
+		nop
 		nop
 		dec RA1
 		brne zero
@@ -72,12 +73,12 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 		nop											; end zero with 14 cycles
 
 		;3µs 1
-		;ldi RTMP, SIGNAL_PIN
 		sbi _SFR_IO_ADDR(PORTB), SIGNAL_PIN			; set pin to one
 		ldi RTMP, 14								; again waste 42 cycles
 		oneoneloop:
 			dec RTMP
 			brne oneoneloop							; 1 cycles for non branch / 2 cycles for branching
+		nop
 		dec RA2
 		brne one
 	nop												; same amount of cycles for branching and nonbranching
