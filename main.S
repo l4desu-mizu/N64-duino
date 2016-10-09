@@ -78,7 +78,6 @@ poll:				; Send 0b000000011 (8 bits) on signal pin
 		oneoneloop:
 			dec RTMP
 			brne oneoneloop    ; 1 / 2 
-		nop
 		dec RA2
 		brne one
 	nop										;same amount of cycles
